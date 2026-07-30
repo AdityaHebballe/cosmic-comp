@@ -56,6 +56,7 @@ use smithay::{
             GestureSwipeBeginEvent, GestureSwipeEndEvent, GestureSwipeUpdateEvent, MotionEvent,
             PointerGrab, PointerHandle, RelativeMotionEvent,
         },
+        tablet::{TabletDescriptor, TabletSeatTrait},
         touch::{DownEvent, MotionEvent as TouchMotionEvent, UpEvent},
     },
     output::Output,
@@ -70,7 +71,6 @@ use smithay::{
         keyboard_shortcuts_inhibit::KeyboardShortcutsInhibitorSeat,
         pointer_constraints::{PointerConstraint, with_pointer_constraint},
         seat::WaylandFocus,
-        tablet_manager::{TabletDescriptor, TabletSeatTrait},
     },
 };
 use tracing::{error, trace};
@@ -179,7 +179,7 @@ impl State {
                 let led_state = seat.get_keyboard().unwrap().led_state();
                 seat.devices().add_device(&device, led_state);
                 if device.has_capability(DeviceCapability::TabletTool) {
-                    seat.tablet_seat().add_tablet::<Self>(
+                    seat.tablet_seat().add_wp_tablet(
                         &self.common.display_handle,
                         &TabletDescriptor::from(&device),
                     );

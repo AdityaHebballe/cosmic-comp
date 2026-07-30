@@ -10,6 +10,7 @@ use smithay::{
             GrabStartData as PointerGrabStartData, MotionEvent, PointerGrab, PointerInnerHandle,
             RelativeMotionEvent,
         },
+        tablet::tool::GrabStartData as TabletToolGrabStartData,
         touch::{
             DownEvent, GrabStartData as TouchGrabStartData, MotionEvent as TouchMotionEvent,
             OrientationEvent, ShapeEvent, TouchGrab, TouchInnerHandle, UpEvent,
@@ -39,6 +40,7 @@ use super::{
 pub enum GrabStartData {
     Touch(TouchGrabStartData<State>),
     Pointer(PointerGrabStartData<State>),
+    TabletTool(TabletToolGrabStartData<State>),
 }
 
 impl GrabStartData {
@@ -46,6 +48,7 @@ impl GrabStartData {
         match self {
             Self::Touch(touch) => touch.focus.as_ref(),
             Self::Pointer(pointer) => pointer.focus.as_ref(),
+            Self::TabletTool(tool) => tool.focus.as_ref(),
         }
     }
 
@@ -53,6 +56,7 @@ impl GrabStartData {
         match self {
             Self::Touch(touch) => touch.focus = focus,
             Self::Pointer(pointer) => pointer.focus = focus,
+            Self::TabletTool(tool) => tool.focus = focus,
         }
     }
 
@@ -60,6 +64,7 @@ impl GrabStartData {
         match self {
             Self::Touch(touch) => touch.location,
             Self::Pointer(pointer) => pointer.location,
+            Self::TabletTool(tool) => tool.location,
         }
     }
 
@@ -67,6 +72,7 @@ impl GrabStartData {
         match self {
             Self::Touch(touch) => touch.location = location,
             Self::Pointer(pointer) => pointer.location = location,
+            Self::TabletTool(tool) => tool.location = location,
         }
     }
 

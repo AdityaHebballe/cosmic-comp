@@ -1,5 +1,7 @@
 // SPDX-License-Identifier: GPL-3.0-only
 
+use std::cell::Cell;
+
 use crate::{
     backend::render::cursor::CursorState,
     shell::{
@@ -21,6 +23,10 @@ use smithay::{
             GrabStartData as PointerGrabStartData, MotionEvent, PointerGrab, PointerInnerHandle,
             PointerTarget, RelativeMotionEvent,
         },
+        tablet::tool::{
+            GrabStartData as TabletToolGrabStartData, GrabTrigger as TabletToolGrabTrigger,
+            TabletToolGrab, TabletToolTarget,
+        },
         touch::{
             DownEvent, FrameMarker, GrabStartData as TouchGrabStartData,
             MotionEvent as TouchMotionEvent, OrientationEvent, ShapeEvent, TouchGrab,
@@ -39,6 +45,7 @@ pub struct ResizeForkTarget {
     pub output: WeakOutput,
     pub left_up_idx: usize,
     pub orientation: Orientation,
+    pub last_tablet_location: Cell<Option<Point<f64, Global>>>,
 }
 
 impl IsAlive for ResizeForkTarget {
@@ -166,6 +173,106 @@ impl TouchTarget<State> for ResizeForkTarget {
     fn orientation(&self, _seat: &Seat<State>, _data: &mut State, _event: &OrientationEvent) {}
     fn last_frame(&self, _seat: &Seat<State>, _data: &mut State) -> Option<FrameMarker> {
         None
+    }
+}
+
+impl TabletToolTarget<State> for ResizeForkTarget {
+    fn down(
+        &self,
+        seat: &Seat<State>,
+        data: &mut State,
+        tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+        event: &smithay::input::tablet::tool::DownEvent,
+    ) {
+        let seat = seat.clone();
+        let node = self.node.clone();
+        let output = self.output.clone();
+        let left_up_idx = self.left_up_idx;
+        let orientation = self.orientation;
+        let serial = event.serial;
+        let Some(location) = self.last_tablet_location.take() else {
+            return;
+        };
+        data.common.event_loop_handle.insert_idle(move |state| {
+            let touch = seat.get_touch().unwrap();
+            touch.set_grab(
+                state,
+                ResizeForkGrab::new(
+                    GrabStartData::TabletTool(TabletToolGrabStartData {
+                        focus: None,
+                        location: location.as_logical(),
+                        trigger: TabletToolGrabTrigger::Tip,
+                    }),
+                    location,
+                    node,
+                    left_up_idx,
+                    orientation,
+                    output,
+                    ReleaseMode::NoMouseButtons,
+                ),
+                serial,
+            )
+        });
+    }
+    fn motion(
+        &self,
+        _seat: &Seat<State>,
+        _data: &mut State,
+        _tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+        event: &smithay::input::tablet::tool::MotionEvent,
+    ) {
+        self.last_tablet_location
+            .set(Some(event.location.as_global()))
+    }
+    fn proximity_out(
+        &self,
+        _seat: &Seat<State>,
+        _data: &mut State,
+        _tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+    ) {
+        self.last_tablet_location.set(None);
+    }
+
+    fn proximity_in(
+        &self,
+        _seat: &Seat<State>,
+        _data: &mut State,
+        _tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+        _tablet: &smithay::input::tablet::Tablet,
+        _serial: smithay::utils::Serial,
+    ) {
+    }
+    fn up(
+        &self,
+        _seat: &Seat<State>,
+        _data: &mut State,
+        _tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+        _event: &smithay::input::tablet::tool::UpEvent,
+    ) {
+    }
+    fn axis(
+        &self,
+        _seat: &Seat<State>,
+        _data: &mut State,
+        _tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+        _frame: smithay::input::tablet::tool::AxisFrame,
+    ) {
+    }
+    fn button(
+        &self,
+        _seat: &Seat<State>,
+        _data: &mut State,
+        _tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+        _event: &smithay::input::tablet::tool::ButtonEvent,
+    ) {
+    }
+    fn frame(
+        &self,
+        _seat: &Seat<State>,
+        _data: &mut State,
+        _tool_descriptor: &smithay::backend::input::TabletToolDescriptor,
+        _time: u32,
+    ) {
     }
 }
 
@@ -342,6 +449,7 @@ impl ResizeForkGrab {
         match self.start_data {
             GrabStartData::Touch(_) => true,
             GrabStartData::Pointer(_) => false,
+            GrabStartData::TabletTool(_) => false,
         }
     }
 }
@@ -561,5 +669,95 @@ impl TouchGrab<State> for ResizeForkGrab {
 
     fn unset(&mut self, data: &mut State) {
         self.update_location(data, self.last_loc.as_logical(), true);
+    }
+}
+
+impl TabletToolGrab<State> for ResizeForkGrab {
+    fn start_data(&self) -> &TabletToolGrabStartData<State> {
+        todo!()
+    }
+
+    fn proximity_out(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        event: &smithay::input::tablet::tool::ProximityOutEvent,
+    ) {
+        todo!()
+    }
+
+    fn motion(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        focus: Option<(
+            <State as smithay::input::tablet::TabletSeatHandler>::ToolFocus,
+            Point<f64, Logical>,
+        )>,
+        event: &smithay::input::tablet::tool::MotionEvent,
+    ) {
+        todo!()
+    }
+
+    fn down(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        event: &smithay::input::tablet::tool::DownEvent,
+    ) {
+        todo!()
+    }
+
+    fn up(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        event: &smithay::input::tablet::tool::UpEvent,
+    ) {
+        todo!()
+    }
+
+    fn button(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        event: &smithay::input::tablet::tool::ButtonEvent,
+    ) {
+        todo!()
+    }
+
+    fn axis(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        frame: smithay::input::tablet::tool::AxisFrame,
+    ) {
+        todo!()
+    }
+
+    fn frame(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        time: u32,
+    ) {
+        todo!()
+    }
+
+    fn unset(&mut self, data: &mut State) {
+        todo!()
+    }
+
+    fn proximity_in(
+        &mut self,
+        data: &mut State,
+        handle: &mut smithay::input::tablet::tool::TabletToolInnerHandle<'_, State>,
+        focus: Option<(
+            <State as smithay::input::tablet::TabletSeatHandler>::ToolFocus,
+            Point<f64, Logical>,
+        )>,
+        event: &smithay::input::tablet::tool::ProximityInEvent,
+    ) {
+        handle.proximity_in(data, focus, event);
     }
 }
