@@ -561,6 +561,20 @@ impl LockedBackend<'_> {
 
         res?;
 
+        // The KMS backend compares the requested VRR mode with the value stored on
+        // the output before sending `UseAdaptiveSync` to its surface thread.  Do
+        // not update that value until after the backend has made that comparison,
+        // otherwise a live VRR change is mistaken for a no-op and only takes
+        // effect after the compositor recreates the surface.
+        for output in &all_outputs {
+            let final_config = output
+                .user_data()
+                .get::<RefCell<OutputConfig>>()
+                .unwrap()
+                .borrow();
+            output.set_adaptive_sync(final_config.vrr);
+        }
+
         let mut shell_ref = shell.write();
         for output in &all_outputs {
             // apply the rest; add / remove outputs
