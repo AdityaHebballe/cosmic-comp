@@ -710,7 +710,7 @@ impl SurfaceThreadState {
             min_hz
                 .map(|min| Duration::from_secs_f64(1. / (min + SAFETY_MARGIN) as f64))
                 .unwrap_or(min_min_refresh_interval) // alternatively use 30Hz
-                .max(min_min_refresh_interval),
+                .min(min_min_refresh_interval),
         ));
 
         if crate::utils::env::bool_var("COSMIC_DISABLE_DIRECT_SCANOUT").unwrap_or(false) {
